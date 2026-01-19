@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MBTI人格测试 | 北极狐</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* 全局样式 - 低饱和柔和色 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        }
+
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            padding: 16px;
+            line-height: 1.6;
+            position: relative;
+        }
+
+        /* 北极狐专属品牌水印（固定在页面角落） */
+        .brand-watermark {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            font-size: 12px;
+            color: #999;
+            z-index: 999;
+        }
+
+        /* 付费引导弹窗样式 */
+        .pay-guide {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            /* 初始隐藏，可手动开启或答题后显示 */
+            display: none;
+        }
+        .pay-card {
+            background: white;
+            padding: 24px;
+            border-radius: 16px;
+            max-width: 300px;
+            text-align: center;
+        }
+        .pay-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 16px;
+            color: #7986cb;
+        }
+        .pay-desc {
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+        .pay-contact {
+            background: #e8eaf6;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-weight: 500;
+            color: #4a5568;
+        }
+        .close-pay {
+            padding: 8px 16px;
+            border: none;
+            background: #7986cb;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        /* 原有核心样式 */
+        .card {
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        #question-card { display: block; }
+        #result-card { display: none; }
+        .question-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            color: #666;
+        }
+        .question-title {
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 24px;
+            color: #444;
+        }
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        .option {
+            padding: 16px;
+            border: 1px solid #e0e6ed;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background-color: #fafbfc;
+        }
+        .option:hover {
+            background-color: #e8eaf6;
+            border-color: #d1d9e6;
+        }
+        .option.selected {
+            background-color: #e8eaf6;
+            border-color: #9fa8da;
+            color: #4a5568;
+        }
+        .btn-group {
+            display: flex;
+            justify-content: space-between;
+        }
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s ease;
+        }
+        .btn-prev {
+            background-color: #f0f2f5;
+            color: #666;
+        }
+        .btn-prev:hover {
+            background-color: #e0e6ed;
+        }
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+            z-index: 999;
+        }
+        .result-header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .personality-type {
+            font-size: 28px;
+            font-weight: bold;
+            color: #7986cb;
+            margin-bottom: 8px;
+        }
+        .personality-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        .chart-container {
+            height: 250px;
+            margin-bottom: 32px;
+        }
+        .result-section {
+            margin-bottom: 24px;
+        }
+        .section-title {
+            font-size: 18px;
+            font-weight: 500;
+            margin-bottom: 12px;
+            color: #555;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .match-list {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+        .match-item {
+            padding: 12px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .card { padding: 16px; }
+            .question-title { font-size: 16px; }
+            .option { padding: 14px; font-size: 14px; }
+            .btn { padding: 10px 20px; font-size: 14px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 付费引导弹窗（已填北极狐微信） -->
+    <div class="pay-guide" id="payGuide">
+        <div class="pay-card">
+            <div class="pay-title">💖 解锁完整MBTI测试</div>
+            <div class="pay-desc">获取无水印版代码+自定义修改服务，适合电商/自媒体引流变现</div>
+            <div class="pay-contact">📱 北极狐微信：qingzb88<br>💰 售价：XX元</div>
+            <button class="close-pay" id="closePay">关闭</button>
+        </div>
+    </div>
+
+    <!-- 提示框 -->
+    <div class="toast" id="toast">请选择一个答案</div>
+
+    <!-- 题目卡片 -->
+    <div class="card" id="question-card">
+        <div class="question-header">
+            <span id="question-count">第 1/60 题</span>
+            <!-- 解锁完整版按钮 -->
+            <button class="btn" style="padding: 6px 12px; font-size: 12px;" onclick="showPayGuide()">💡 解锁完整版</button>
+        </div>
+        <div class="question-title" id="question-content">加载中...</div>
+        <div class="options" id="options-container"></div>
+        <div class="btn-group">
+            <button class="btn btn-prev" id="prev-btn">上一题</button>
+        </div>
+    </div>
+
+    <!-- 结果卡片 -->
+    <div class="card" id="result-card">
+        <div class="result-header">
+            <div class="personality-icon" id="personality-icon">🎯</div>
+            <div class="personality-type" id="personality-type">INFJ</div>
+            <div id="personality-name">咨询师</div>
+        </div>
+        <div class="chart-container">
+            <canvas id="personality-chart"></canvas>
+        </div>
+        <div class="result-section">
+            <div class="section-title">人格解读</div>
+            <div id="personality-desc">加载中...</div>
+        </div>
+        <div class="result-section">
+            <div class="section-title">职业适配</div>
+            <div class="match-list" id="career-match"></div>
+        </div>
+        <div class="result-section">
+            <div class="section-title">伴侣类型推荐</div>
+            <div class="match-list" id="partner-match"></div>
+        </div>
+    </div>
+
+    <!-- 北极狐专属水印 -->
+    <div class="brand-watermark">© 北极狐 | 电商引流工具</div>
+
+    <script>
+        // 1. 题目数据（50道是否题 + 10道情景题）
+        const questions = [
+            // === 是否题（1-50）===
+            { type: "bool", text: "你更倾向于主动发起社交活动", dimension: "EI", score: { yes: "E", no: "I" } },
+            { type: "bool", text: "你喜欢深度思考而非快速行动", dimension: "SN", score: { yes: "N", no: "S" } },
+            { type: "bool", text: "做决定时你更依赖逻辑而非情感", dimension: "TF", score: { yes: "T", no: "F" } },
+            { type: "bool", text: "你喜欢按计划行事而非随机应变", dimension: "JP", score: { yes: "J", no: "P" } },
+            { type: "bool", text: "社交后你通常需要独处恢复精力", dimension: "EI", score: { yes: "I", no: "E" } },
+            { type: "bool", text: "你更关注具体事实而非抽象概念", dimension: "SN", score: { yes: "S", no: "N" } },
+            { type: "bool", text: "你容易察觉他人的情绪变化", dimension: "TF", score: { yes: "F", no: "T" } },
+            { type: "bool", text: "你享受计划被打乱后的即兴发挥", dimension: "JP", score: { yes: "P", no: "J" } },
+            { type: "bool", text: "你喜欢成为人群的焦点", dimension: "EI", score: { yes: "E", no: "I" } },
+            { type: "bool", text: "你经常畅想未来的可能性", dimension: "SN", score: { yes: "N", no: "S" } },
+            { type: "bool", text: "你认为公正比人情更重要", dimension: "TF", score: { yes: "T", no: "F" } },
+            { type: "bool", text: "你会提前安排好明天的所有事情", dimension: "JP", score: { yes: "J", no: "P" } },
+            { type: "bool", text: "你宁愿宅家看书也不愿参加聚会", dimension: "EI", score: { yes: "I", no: "E" } },
+            { type: "bool", text: "你对细节有很强的观察力", dimension: "SN", score: { yes: "S", no: "N" } },
+            { type: "bool", text: "你会为了照顾他人感受而妥协", dimension: "TF", score: { yes: "F", no: "T" } },
+            { type: "bool", text: "你不喜欢被固定的规则束缚", dimension: "JP", score: { yes: "P", no: "J" } },
+            { type: "bool", text: "你能轻松与陌生人展开对话", dimension: "EI", score: { yes: "E", no: "I" } },
+            { type: "bool", text: "你喜欢探讨哲学或抽象话题", dimension: "SN", score: { yes: "N", no: "S" } },
+            { type: "bool", text: "你很少因为情绪影响判断", dimension: "TF", score: { yes: "T", no: "F" } },
+            { type: "bool", text: "你会把物品摆放得整整齐齐", dimension: "JP", score: { yes: "J", no: "P" } },
+            { type: "bool", text: "长时间社交会让你感到疲惫", dimension: "EI", score: { yes: "I", no: "E" } },
+            { type: "bool", text: "你更关注当下而非未来", dimension: "SN", score: { yes: "S", no: "N" } },
+            { type: "bool", text: "你容易共情他人的遭遇", dimension: "TF", score: { yes: "F", no: "T" } },
+            { type: "bool", text: "你喜欢保留多种选择不做决定", dimension: "JP", score: { yes: "P", no: "J" } },
+            { type: "bool", text: "你喜欢分享自己的想法和感受", dimension: "EI", score: { yes: "E", no: "I" } },
+            { type: "bool", text: "你经常有新奇的想法和创意", dimension: "SN", score: { yes: "N", no: "S" } },
+            { type: "bool", text: "你会客观分析自己的情绪", dimension: "TF", score: { yes: "T", no: "F" } },
+            { type: "bool", text: "你讨厌临时变更计划", dimension: "JP", score: { yes: "J", no: "P" } },
+            { type: "bool", text: "你更愿意倾听而非表达", dimension: "EI", score: { yes: "I", no: "E" } },
+            { type: "bool", text: "你注重实际效果而非理论", dimension: "SN", score: { yes: "S", no: "N" } },
+            { type: "bool", text: "你会优先考虑他人的需求", dimension: "TF", score: { yes: "F", no: "T" } },
+            { type: "bool", text: "你喜欢随遇而安的生活", dimension: "JP", score: { yes: "P", no: "J" } },
+            { type: "bool", text: "你在社交场合中感到放松", dimension: "EI", score: { yes: "E", no: "I" } },
+            { type: "bool", text: "你对抽象的理论很感兴趣", dimension: "SN", score: { yes: "N", no: "S" } },
+            { type: "bool", text: "你认为效率比和谐更重要", dimension: "TF", score: { yes: "T", no: "F" } },
+            { type: "bool", text: "你会制定详细的目标和计划", dimension: "JP", score: { yes: "J", no: "P" } },
+            { type: "bool", text: "你需要私人空间来恢复能量", dimension: "EI", score: { yes: "I", no: "E" } },
+            { type: "bool", text: "你擅长记住具体的细节信息", dimension: "SN", score: { yes: "S", no: "N" } },
+            { type: "bool", text: "你会避免可能伤害他人的言论", dimension: "TF", score: { yes: "F", no: "T" } },
+            { type: "bool", text: "你喜欢即兴做出决定", dimension: "JP", score: { yes: "P", no: "J" } },
+            { type: "bool", text: "你喜欢结识新朋友", dimension: "EI", score: { yes: "E", no: "I" } },
+            { type: "bool", text: "你经常思考人生的意义", dimension: "SN", score: { yes: "N", no: "S" } },
+            { type: "bool", text: "你不轻易表露自己的情感", dimension: "TF", score: { yes: "T", no: "F" } },
+            { type: "bool", text: "你会按时完成所有任务", dimension: "JP", score: { yes: "J", no: "P" } },
+            { type: "bool", text: "你觉得独处是一种享受", dimension: "EI", score: { yes: "I", no: "E" } },
+            { type: "bool", text: "你更相信经验而非直觉", dimension: "SN", score: { yes: "S", no: "N" } },
+            { type: "bool", text: "你会为他人的成功感到高兴", dimension: "TF", score: { yes: "F", no: "T" } },
+            { type: "bool", text: "你不喜欢设定明确的目标", dimension: "JP", score: { yes: "P", no: "J" } },
+            { type: "bool", text: "你在聚会中通常很活跃", dimension: "EI", score: { yes: "E", no: "I" } },
+            { type: "bool", text: "你喜欢想象未发生的事情", dimension: "SN", score: { yes: "N", no: "S" } },
+            
+            // === 情景题（51-60）===
+            { 
+                type: "scene", 
+                text: "初识新朋友时，你更在意？", 
+                dimension: "EI", 
+                score: { 
+                    A: "E", // 对方是否有趣、能聊得来
+                    B: "I"  // 对方是否真诚、值得信任
+                },
+                options: ["对方是否有趣、能聊得来", "对方是否真诚、值得信任"] 
+            },
+            { 
+                type: "scene", 
+                text: "团队合作中出现分歧，你会？", 
+                dimension: "TF", 
+                score: { 
+                    A: "T", // 理性分析利弊，坚持正确观点
+                    B: "F"  // 先顾及他人感受，寻求折中方案
+                },
+                options: ["理性分析利弊，坚持正确观点", "先顾及他人感受，寻求折中方案"] 
+            },
+            { 
+                type: "scene", 
+                text: "周末计划被打乱，你的反应是？", 
+                dimension: "JP", 
+                score: { 
+                    A: "P", // 觉得新鲜有趣，顺势调整安排
+                    B: "J"  // 感到烦躁，尽量恢复原计划
+                },
+                options: ["觉得新鲜有趣，顺势调整安排", "感到烦躁，尽量恢复原计划"] 
+            },
+            { 
+                type: "scene", 
+                text: "学习新技能时，你更关注？", 
+                dimension: "SN", 
+                score: { 
+                    A: "S", // 具体的操作步骤和实际应用
+                    B: "N"  // 背后的原理和未来的应用场景
+                },
+                options: ["具体的操作步骤和实际应用", "背后的原理和未来的应用场景"] 
+            },
+            { 
+                type: "scene", 
+                text: "和伴侣吵架后，你会？", 
+                dimension: "TF", 
+                score: { 
+                    A: "F", // 先道歉缓和关系，再谈对错
+                    B: "T"  // 先理清对错，再考虑和好
+                },
+                options: ["先道歉缓和关系，再谈对错", "先理清对错，再考虑和好"] 
+            },
+            { 
+                type: "scene", 
+                text: "准备旅行时，你会？", 
+                dimension: "JP", 
+                score: { 
+                    A: "J", // 提前做好详细攻略和行程表
+                    B: "P"  // 只定大致方向，到当地再随机应变
+                },
+                options: ["提前做好详细攻略和行程表", "只定大致方向，到当地再随机应变"] 
+            },
+            { 
+                type: "scene", 
+                text: "被问到一个陌生问题，你会？", 
+                dimension: "SN", 
+                score: { 
+                    A: "N", // 先猜测可能的答案，再验证
+                    B: "S"  // 先查找相关资料，再给出答案
+                },
+                options: ["先猜测可能的答案，再验证", "先查找相关资料，再给出答案"] 
+            },
+            { 
+                type: "scene", 
+                text: "工作累了想放松，你会选择？", 
+                dimension: "EI", 
+                score: { 
+                    A: "E", // 和朋友聚会、逛街
+                    B: "I"  // 独处看书、看电影
+                },
+                options: ["和朋友聚会、逛街", "独处看书、看电影"] 
+            },
+            { 
+                type: "scene", 
+                text: "选择职业时，你更看重？", 
+                dimension: "TF", 
+                score: { 
+                    A: "T", // 薪资待遇和职业发展
+                    B: "F"  // 工作氛围和是否有意义
+                },
+                options: ["薪资待遇和职业发展", "工作氛围和是否有意义"] 
+            },
+            { 
+                type: "scene", 
+                text: "收到新任务，你会？", 
+                dimension: "JP", 
+                score: { 
+                    A: "J", // 立刻开始规划，尽快完成
+                    B: "P"  // 先收集信息，临近截止再集中完成
+                },
+                options: ["立刻开始规划，尽快完成", "先收集信息，临近截止再集中完成"] 
+            }
+        ];
+
+        // 2. MBTI人格数据（含解读、职业、伴侣推荐）
+        const mbtiData = {
+            INFJ: {
+                name: "咨询师",
+                icon: "🎯",
+                desc: "富有洞察力和理想主义，善于理解他人并提供深刻的建议。你是天生的思考者和引导者，对自己的价值观有强烈的坚持，渴望让世界变得更美好。",
+                career: ["心理咨询师", "教育工作者", "作家", "公益组织负责人", "设计师"],
+                partner: ["ENFP", "INFP", "ENTP", "INTJ", "INFJ"]
+            },
+            INFP: {
+                name: "调停者",
+                icon: "🌸",
+                desc: "充满理想主义和创造力，内心敏感且富有同情心。你重视个人价值和意义，善于发现他人的优点，常常为了追求内心的真实而努力。",
+                career: ["作家", "艺术家", "社工", "编辑", "音乐治疗师"],
+                partner: ["ENFJ", "INFJ", "ENTJ", "INTJ", "INFP"]
+            },
+            INTJ: {
+                name: "建筑师",
+                icon: "🏛️",
+                desc: "富有战略眼光和逻辑思维，独立自主且追求完美。你擅长制定长远规划，对知识有强烈的渴求，是天生的问题解决者和创新者。",
+                career: ["程序员", "工程师", "企业家", "科学家", "战略顾问"],
+                partner: ["ENTP", "INFP", "ENFP", "INTJ", "INFJ"]
+            },
+            INTP: {
+                name: "逻辑学家",
+                icon: "🧩",
+                desc: "好奇心强且思维敏捷，善于分析和探索抽象概念。你享受智力上的挑战，对知识有无限的渴求，常常沉浸在自己的思考世界中。",
+                career: ["科学家", "程序员", "哲学家", "研究员", "分析师"],
+                partner: ["ENTJ", "INFJ", "ENTP", "INTJ", "INTP"]
+            },
+            ENFJ: {
+                name: "主人公",
+                icon: "🗺️",
+                desc: "热情且富有魅力，善于激励和引导他人。你天生具有领导才能，重视人际关系的和谐，渴望帮助他人实现潜能。",
+                career: ["教师", "管理者", "公关", "培训师", "人力资源"],
+                partner: ["INFP", "ENFP", "INFJ", "ENTP", "ENFJ"]
+            },
+            ENFP: {
+                name: "竞选者",
+                icon: "🎉",
+                desc: "充满活力和创造力，乐观且善于沟通。你热爱生活和探索新可能性，善于发现他人的闪光点，是天生的社交者和创意者。",
+                career: ["营销策划", "创业者", "演员", "设计师", "记者"],
+                partner: ["INFJ", "INTJ", "ENFJ", "ENTJ", "ENFP"]
+            },
+            ENTJ: {
+                name: "指挥官",
+                icon: "⚔️",
+                desc: "果断且富有领导力，善于制定战略和执行计划。你目标明确，追求效率和成功，是天生的领导者和决策者。",
+                career: ["CEO", "高管", "律师", "军人", "项目经理"],
+                partner: ["INTP", "INFP", "ENTP", "INTJ", "ENTJ"]
+            },
+            ENTP: {
+                name: "辩论家",
+                icon: "🗣️",
+                desc: "机智且富有创造力，善于辩论和挑战常规。你热爱智力上的交锋，思维敏捷，总能提出新颖的观点和解决方案。",
+                career: ["律师", "创业者", "广告策划", "脱口秀演员", "顾问"],
+                partner: ["INTJ", "INFJ", "ENTJ", "ENFP", "ENTP"]
+            },
+            ISFJ: {
+                name: "守卫者",
+                icon: "🛡️",
+                desc: "细心且富有责任感，善于照顾和保护他人。你重视传统和稳定，总是默默付出，是值得信赖的朋友和伙伴。",
+                career: ["护士", "教师", "行政人员", "客服", "人力资源"],
+                partner: ["ESFP", "ISFP", "ESTP", "ISTP", "ISFJ"]
+            },
+            ISFP: {
+                name: "探险家",
+                icon: "🌿",
+                desc: "敏感且富有艺术气息，热爱生活和自然。你重视个人体验和感受，善于用行动表达情感，是天生的艺术家和体验者。",
+                career: ["艺术家", "厨师", "摄影师", "理疗师", "园艺师"],
+                partner: ["ESFJ", "ISFJ", "ESTJ", "ISTJ", "ISFP"]
+            },
+            ISTJ: {
+                name: "物流师",
+                icon: "📦",
+                desc: "严谨且富有责任感，善于组织和管理。你重视规则和秩序，做事可靠且高效，是天生的执行者和管理者。",
+                career: ["会计", "工程师", "警察", "档案管理员", "项目经理"],
+                partner: ["ESTP", "ISFP", "ESFP", "ISTP", "ISTJ"]
+            },
+            ISTP: {
+                name: "鉴赏家",
+                icon: "🔧",
+                desc: "冷静且富有动手能力，善于分析和解决实际问题。你热爱探索和体验，总是能快速适应新环境，是天生的技术专家和解决者。",
+                career: ["工程师", "技师", "运动员", "侦探", "程序员"],
+                partner: ["ESTJ", "ISFJ", "ESFJ", "ISTJ", "ISTP"]
+            },
+            ESFJ: {
+                name: "执政官",
+                icon: "👑",
+                desc: "热情且善于社交，重视人际关系和传统。你善于照顾他人的需求，总是努力营造和谐的氛围，是天生的社交组织者。",
+                career: ["教师", "公关", "客服主管", "活动策划", "人力资源"],
+                partner: ["ISFP", "ESFP", "ISTP", "ESTP", "ESFJ"]
+            },
+            ESFP: {
+                name: "表演者",
+                icon: "🎭",
+                desc: "热情且富有活力，热爱生活和表演。你善于表达和娱乐他人，总是能给身边的人带来快乐，是天生的表演者和社交者。",
+                career: ["演员", "主持人", "销售", "旅游博主", "活动策划"],
+                partner: ["ISFJ", "ESFJ", "ISTJ", "ESTJ", "ESFP"]
+            },
+            ESTJ: {
+                name: "总经理",
+                icon: "📊",
+                desc: "果断且富有组织能力，重视效率和结果。你善于管理和指挥，总是能快速做出决策，是天生的领导者和管理者。",
+                career: ["经理", "企业家", "军人", "律师", "行政主管"],
+                partner: ["ISTP", "ESTP", "ISFP", "ESFP", "ESTJ"]
+            },
+            ESTP: {
+                name: "企业家",
+                icon: "🚀",
+                desc: "大胆且富有行动力，热爱冒险和挑战。你善于把握机会，总是能快速适应变化，是天生的创业者和行动者。",
+                career: ["销售", "创业者", "运动员", "经纪人", "公关"],
+                partner: ["ISTJ", "ESTJ", "ISFJ", "ESFJ", "ESTP"]
+            }
+        };
+
+        // 3. 全局变量
+        let currentQuestionIndex = 0; // 当前题目索引
+        let answers = []; // 存储用户答案
+        let scores = { EI: { E: 0, I: 0 }, SN: { S: 0, N: 0 }, TF: { T: 0, F: 0 }, JP: { J: 0, P: 0 } }; // 维度得分
+
+        // 4. DOM元素
+        const questionCard = document.getElementById("question-card");
+        const resultCard = document.getElementById("result-card");
+        const questionCount = document.getElementById("question-count");
+        const questionContent = document.getElementById("question-content");
+        const optionsContainer = document.getElementById("options-container");
+        const prevBtn = document.getElementById("prev-btn");
+        const toast = document.getElementById("toast");
+
+        // 新增：付费弹窗控制（北极狐专属）
+        function showPayGuide() {
+            document.getElementById("payGuide").style.display = "flex";
+        }
+        document.getElementById("closePay").addEventListener("click", function() {
+            document.getElementById("payGuide").style.display = "none";
+        });
+
+        // 5. 初始化页面
+        function init() {
+            renderQuestion(currentQuestionIndex);
+            bindEvents();
+        }
+
+        // 6. 渲染题目
+        function renderQuestion(index) {
+            // 更新题目计数
+            questionCount.textContent = `第 ${index + 1}/60 题`;
+            
+            // 获取当前题目
+            const question = questions[index];
+            questionContent.textContent = question.text;
+            
+            // 清空选项容器
+            optionsContainer.innerHTML = "";
+            
+            // 生成选项
+            let options = [];
+            if (question.type === "bool") {
+                options = ["是", "否"];
+            } else if (question.type === "scene") {
+                options = question.options;
+            }
+            
+            // 创建选项元素
+            options.forEach((optionText, optionIndex) => {
+                const option = document.createElement("div");
+                option.className = "option";
+                option.dataset.index = optionIndex;
+                option.textContent = optionText;
+                
+                // 如果已有答案，标记选中状态
+                if (answers[index] !== undefined && answers[index] === optionIndex) {
+                    option.classList.add("selected");
+                }
+                
+                optionsContainer.appendChild(option);
+            });
+            
+            // 禁用/启用上一题按钮
+            prevBtn.disabled = index === 0;
+            prevBtn.style.opacity = index === 0 ? 0.5 : 1;
+        }
+
+        // 7. 绑定事件
+        function bindEvents() {
+            // 选项点击事件
+            optionsContainer.addEventListener("click", (e) => {
+                const option = e.target.closest(".option");
+                if (!option) return;
+                
+                // 移除其他选项的选中状态
+                document.querySelectorAll(".option").forEach(opt => {
+                    opt.classList.remove("selected");
+                });
+                
+                // 添加当前选项的选中状态
+                option.classList.add("selected");
+                
+                // 记录答案
+                const optionIndex = parseInt(option.dataset.index);
+                answers[currentQuestionIndex] = optionIndex;
+                
+                // 计分
+                calculateScore(currentQuestionIndex, optionIndex);
+                
+                // 自动跳转到下一题（最后一题则显示结果）
+                if (currentQuestionIndex < questions.length - 1) {
+                    setTimeout(() => {
+                        currentQuestionIndex++;
+                        renderQuestion(currentQuestionIndex);
+                    }, 300);
+                } else {
+                    // 最后一题，显示结果
+                    setTimeout(() => {
+                        showResult();
+                        // 可选：答题完成后自动弹出付费引导，取消下面注释即可
+                        // showPayGuide();
+                    }, 300);
+                }
+            });
+            
+            // 上一题按钮点击事件
+            prevBtn.addEventListener("click", () => {
+                if (currentQuestionIndex > 0) {
+                    currentQuestionIndex--;
+                    renderQuestion(currentQuestionIndex);
+                }
+            });
+        }
+
+        // 8. 计分逻辑
+        function calculateScore(questionIndex, optionIndex) {
+            const question = questions[questionIndex];
+            const dimension = question.dimension;
+            let scoreKey = "";
+            
+            // 获取得分对应的维度（E/I, S/N, T/F, J/P）
+            if (question.type === "bool") {
+                scoreKey = optionIndex === 0 ? question.score.yes : question.score.no;
+            } else if (question.type === "scene") {
+                scoreKey = optionIndex === 0 ? question.score.A : question.score.B;
+            }
+            
+            // 更新得分
+            scores[dimension][scoreKey]++;
+        }
+
+        // 9. 显示提示
+        function showToast(message) {
+            toast.textContent = message;
+            toast.style.display = "block";
+            setTimeout(() => {
+                toast.style.display = "none";
+            }, 2000);
+        }
+
+        // 10. 计算MBTI类型
+        function getMBTI() {
+            const ei = scores.EI.E > scores.EI.I ? "E" : "I";
+            const sn = scores.SN.S > scores.SN.N ? "S" : "N";
+            const tf = scores.TF.T > scores.TF.F ? "T" : "F";
+            const jp = scores.JP.J > scores.JP.P ? "J" : "P";
+            return ei + sn + tf + jp;
+        }
+
+        // 11. 显示结果
+        function showResult() {
+            // 隐藏题目卡片，显示结果卡片
+            questionCard.style.display = "none";
+            resultCard.style.display = "block";
+            
+            // 计算MBTI类型
+            const mbtiType = getMBTI();
+            const personality = mbtiData[mbtiType];
+            
+            // 更新结果内容
+            document.getElementById("personality-type").textContent = mbtiType;
+            document.getElementById("personality-icon").textContent = personality.icon;
+            document.getElementById("personality-name").textContent = personality.name;
+            document.getElementById("personality-desc").textContent = personality.desc;
+            
+            // 渲染职业适配
+            const careerMatch = document.getElementById("career-match");
+            careerMatch.innerHTML = "";
+            personality.career.forEach(career => {
+                const item = document.createElement("div");
+                item.className = "match-item";
+                item.textContent = career;
+                careerMatch.appendChild(item);
+            });
+            
+            // 渲染伴侣类型推荐
+            const partnerMatch = document.getElementById("partner-match");
+            partnerMatch.innerHTML = "";
+            personality.partner.forEach(partner => {
+                const item = document.createElement("div");
+                item.className = "match-item";
+                item.textContent = `${partner} (${mbtiData[partner].name})`;
+                partnerMatch.appendChild(item);
+            });
+            
+            // 绘制维度得分条形图
+            renderChart();
+        }
+
+        // 12. 绘制条形图
+        function renderChart() {
+            const ctx = document.getElementById("personality-chart").getContext("2d");
+            
+            // 准备数据
+            const labels = ["外向(E)/内向(I)", "实感(S)/直觉(N)", "思考(T)/情感(F)", "判断(J)/感知(P)"];
+            const data1 = [
+                scores.EI.E,
+                scores.SN.S,
+                scores.TF.T,
+                scores.JP.J
+            ];
+            const data2 = [
+                scores.EI.I,
+                scores.SN.N,
+                scores.TF.F,
+                scores.JP.P
+            ];
+            
+            // 创建图表
+            new Chart(ctx, {
+                type: "bar",
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: labels[0].split("/")[0],
+                            data: data1,
+                            backgroundColor: "rgba(159, 168, 218, 0.6)",
+                            borderColor: "rgba(159, 168, 218, 1)",
+                            borderWidth: 1
+                        },
+                        {
+                            label: labels[0].split("/")[1],
+                            data: data2,
+                            backgroundColor: "rgba(176, 190, 197, 0.6)",
+                            borderColor: "rgba(176, 190, 197, 1)",
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: "得分"
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: "top",
+                        },
+                        title: {
+                            display: true,
+                            text: "MBTI维度得分对比"
+                        }
+                    }
+                }
+            });
+        }
+
+        // 初始化
+        init();
+    </script>
+</body>
+</html>
